@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(OWNER)
+  createdAt    DateTime @default(now())
+}
+
+enum Role {
+  OWNER
+  STAFF
+}
+
+model CompanySettings {
+  id               String   @id @default(cuid())
+  companyName      String
+  addressLine      String
+  gstin            String
+  stateName        String
+  stateCode        String   // e.g. "24" for Gujarat
+  logoUrl          String?
+  bankName         String?
+  bankBranch       String?
+  bankAccountNo    String?
+  bankIfsc         String?
+  termsConditions  String?  // multi-line, shown on every invoice
+  cgstRate         Decimal  @default(2.5)
+  sgstRate         Decimal  @default(2.5)
+  igstRate         Decimal  @default(5)
+  invoicePrefix    String   @default("") // e.g. "KA-"
+  nextInvoiceNo    Int      @default(1)
+  updatedAt        DateTime @updatedAt
+}
+
+model Party {
+  id           String    @id @default(cuid())
+  name         String
+  addressLine1 String?
+  addressLine2 String?
+  cityPin      String?
+  stateName    String?
+  stateCode    String?   // used to decide intra vs inter-state GST
+  gstin        String?
+  pan          String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  invoices     Invoice[]
+
+  @@index([name])
+}
+
+model Invoice {
+  id               String        @id @default(cuid())
+  invoiceNo        String        @unique
+  invoiceDate      DateTime
+  placeOfSupply    String        // "GUJARAT (Code : 24)" style
+  challanRef       String?       // "cl/44" field
+  partyId          String
+  party            Party         @relation(fields: [partyId], references: [id])
+  discountPercent  Decimal       @default(0)
+  cgstRate         Decimal
+  sgstRate         Decimal
+  igstRate         Decimal
+  isIntraState     Boolean
+  amountInWords    String
+  remarks          String?
+  status           InvoiceStatus @default(UNPAID)
+  items            InvoiceItem[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+enum InvoiceStatus {
+  DRAFT
+  UNPAID
+  PAID
+  CANCELLED
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  srNo        Int
+  description String
+  hsnCode     String
+  quantity    Decimal
+  rate        Decimal
+  amount      Decimal
+}
